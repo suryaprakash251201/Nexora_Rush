@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: #05070d;
+  color: #e2e8f0;
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: rgba(34, 211, 238, 0.35);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0e18;
+}
+::-webkit-scrollbar-thumb {
+  background: #1a2338;
+  border-radius: 8px;
+  border: 2px solid #0a0e18;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #22d3ee66;
+}
+
+@layer components {
+  .glass {
+    @apply rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_8px_40px_rgba(0,0,0,0.45)];
+  }
+  .glass-strong {
+    @apply rounded-2xl border border-white/10 bg-[#0a0e18]/85 backdrop-blur-xl shadow-[0_8px_60px_rgba(0,0,0,0.6)];
+  }
+  .neon-btn {
+    @apply relative inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 font-display text-sm font-bold uppercase tracking-widest transition-all duration-200 outline-none;
+    @apply focus-visible:ring-2 focus-visible:ring-neon-cyan/70 disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .neon-btn-primary {
+    @apply neon-btn text-ink-950;
+    background: linear-gradient(135deg, #22d3ee, #38bdf8);
+    box-shadow: 0 0 24px rgba(34, 211, 238, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  }
+  .neon-btn-primary:hover {
+    box-shadow: 0 0 42px rgba(34, 211, 238, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+    transform: translateY(-1px);
+  }
+  .neon-btn-ghost {
+    @apply neon-btn text-slate-200 border border-white/15 bg-white/5 hover:bg-white/10 hover:border-white/30;
+  }
+  .neon-btn-danger {
+    @apply neon-btn text-white;
+    background: linear-gradient(135deg, #fb3b53, #d61f3c);
+    box-shadow: 0 0 24px rgba(251, 59, 83, 0.3);
+  }
+  .input-field {
+    @apply w-full rounded-xl border border-white/15 bg-black/40 px-4 py-3 text-slate-100 placeholder-slate-500 outline-none transition-colors;
+    @apply focus:border-neon-cyan/60 focus:ring-2 focus:ring-neon-cyan/20;
+  }
+  .field-label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400;
+  }
+  .field-error {
+    @apply mt-1 text-xs font-semibold text-rose-400;
+  }
+  .stat-track {
+    @apply h-1.5 w-full overflow-hidden rounded-full bg-white/10;
+  }
+  .stat-fill {
+    @apply h-full rounded-full transition-all duration-500;
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.animate-pulse-glow {
+  animation: pulse-glow 2.2s ease-in-out infinite;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-pulse-glow {
+    animation: none;
+  }
+}

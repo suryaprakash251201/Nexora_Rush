@@ -1,0 +1,215 @@
+// Nexora Rush — database schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  username    String   @unique
+  email       String   @unique
+  passwordHash String
+  avatarSeed  String   @default("1")
+  xp          Int      @default(0)
+  winStreak   Int      @default(0)
+  championshipWins Int @default(0)
+  settings    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sessions        Session[]
+  races           Race[]
+  raceResults     RaceResult[]
+  userCars        UserCar[]
+  userTracks      UserTrack[]
+  achievements    UserAchievement[]
+  championships   Championship[]
+
+  @@index([xp])
+}
+
+/// Refresh-token sessions (supports "remember me" + revocation).
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  remember  Boolean  @default(false)
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Static catalog of cars (seeded from shared game data).
+model Car {
+  id           String   @id
+  name         String
+  class        String
+  description  String
+  stats        Json
+  unlockLevel  Int
+  createdAt    DateTime @default(now())
+  userCars     UserCar[]
+  raceResults  RaceResult[]
+}
+
+/// Static catalog of tracks (seeded from shared game data).
+model Track {
+  id           String   @id
+  name         String
+  theme        String
+  description  String
+  difficulty   Int
+  unlockLevel  Int
+  lengthKm     Float
+  minLapSeconds Int
+  minRaceSeconds Int
+  parRaceSeconds Int
+  createdAt    DateTime @default(now())
+  userTracks   UserTrack[]
+  raceResults  RaceResult[]
+}
+
+/// Per-user car usage / unlock bookkeeping.
+model UserCar {
+  userId     String
+  carId      String
+  uses       Int      @default(0)
+  unlockedAt DateTime @default(now())
+  lastUsedAt DateTime?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  car        Car      @relation(fields: [carId], references: [id])
+
+  @@id([userId, carId])
+  @@index([carId])
+}
+
+model UserTrack {
+  userId     String
+  trackId    String
+  uses       Int      @default(0)
+  unlockedAt DateTime @default(now())
+  lastUsedAt DateTime?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track      Track    @relation(fields: [trackId], references: [id])
+
+  @@id([userId, trackId])
+  @@index([trackId])
+}
+
+/// A race session opened by POST /api/races/start. Anti-cheat anchor:
+/// results must reference a live session that matches the submitted config.
+model Race {
+  id         String    @id @default(cuid())
+  userId     String
+  trackId    String
+  carId      String
+  mode       String
+  difficulty String
+  laps       Int
+  weather    String
+  timeOfDay  String
+  status     String    @default("pending") // pending | finished | expired
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  results    RaceResult[]
+  championshipId String?
+
+  @@index([userId, status])
+  @@index([startedAt])
+}
+
+/// The authoritative result of a race.
+model RaceResult {
+  id          String    @id @default(cuid())
+  raceId      String    @unique
+  userId      String
+  trackId     String
+  carId       String
+  mode        String
+  difficulty  String
+  laps        Int
+  weather     String
+  timeOfDay   String
+  score       Int
+  position    Int
+  grid        Int
+  raceTimeMs  Int?
+  bestLapMs   Int?
+  driftPoints Int       @default(0)
+  overtakes   Int       @default(0)
+  nearMisses  Int       @default(0)
+  nitroChains Int       @default(0)
+  collisions  Int       @default(0)
+  topSpeedKmh Float     @default(0)
+  distanceKm  Float     @default(0)
+  finished    Boolean   @default(true)
+  xpEarned    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  race        Race      @relation(fields: [raceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track       Track     @relation(fields: [trackId], references: [id])
+  car         Car       @relation(fields: [carId], references: [id])
+
+  @@index([score])
+  @@index([userId, createdAt])
+  @@index([trackId, score])
+  @@index([createdAt])
+  @@index([mode])
+}
+
+model Achievement {
+  id          String   @id
+  name        String
+  description String
+  icon        String
+  xp          Int
+  users       UserAchievement[]
+}
+
+model UserAchievement {
+  userId         String
+  achievementId  String
+  unlockedAt     DateTime @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement    Achievement  @relation(fields: [achievementId], references: [id])
+
+  @@id([userId, achievementId])
+  @@index([achievementId])
+}
+
+/// Championship series (3 rounds). Entries store per-round points.
+model Championship {
+  id        String   @id @default(cuid())
+  userId    String
+  trackIds  String[]
+  status    String   @default("active") // active | complete
+  points    Int      @default(0)
+  wins      Int      @default(0)
+  round     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries   ChampionshipEntry[]
+}
+
+model ChampionshipEntry {
+  id             String       @id @default(cuid())
+  championshipId String
+  round          Int
+  raceResultId   String?
+  points         Int
+  position       Int
+  championship   Championship @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+
+  @@index([championshipId])
+}
