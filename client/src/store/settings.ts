@@ -1,73 +1,64 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Difficulty, RaceMode, TimeOfDay, TrackDef, Weather } from 'shared';
+import type { Difficulty, RaceMode, TimeOfDay, Weather } from 'shared';
 import { getTrack } from 'shared';
 
 export type Quality = 'low' | 'medium' | 'high' | 'ultra';
-export type CameraMode = 'chase' | 'hood' | 'cinematic';
+export type CamMode = 'chase' | 'hood';
 export type Units = 'kmh' | 'mph';
 
-export interface SettingsState {
-  // graphics
+interface SettingsStore {
   quality: Quality;
-  resolutionScale: number;
+  resolution: number; // 0.5..1 render scale
   shadows: boolean;
-  bloom: boolean;
-  reflections: boolean;
-  motionBlur: boolean;
   showFps: boolean;
-  // audio
-  masterVolume: number;
-  musicVolume: number;
-  sfxVolume: number;
-  engineVolume: number;
-  // gameplay
-  camera: CameraMode;
+  master: number;
+  music: number;
+  sfx: number;
+  engine: number;
+  camera: CamMode;
   units: Units;
   autoReset: boolean;
-  defaultDifficulty: Difficulty;
-  // controls
-  steerSensitivity: number;
-  touchLayout: 'left-right' | 'single-stick';
+  sensitivity: number; // 0.5..2
   reducedMotion: boolean;
-
-  set: <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => void;
-  reset: () => void;
+  set: <K extends keyof SettingsStore>(key: K, value: SettingsStore[K]) => void;
+  presetPerformance: () => void;
+  presetQuality: () => void;
+  resetAll: () => void;
 }
 
 const DEFAULTS = {
-  quality: 'high' as Quality,
-  resolutionScale: 1,
-  shadows: true,
-  bloom: true,
-  reflections: true,
-  motionBlur: false,
+  quality: 'medium' as Quality,
+  resolution: 1,
+  shadows: false,
   showFps: false,
-  masterVolume: 0.8,
-  musicVolume: 0.5,
-  sfxVolume: 0.8,
-  engineVolume: 0.6,
-  camera: 'chase' as CameraMode,
+  master: 0.8,
+  music: 0.5,
+  sfx: 0.8,
+  engine: 0.6,
+  camera: 'chase' as CamMode,
   units: 'kmh' as Units,
   autoReset: true,
-  defaultDifficulty: 'normal' as Difficulty,
-  steerSensitivity: 1,
-  touchLayout: 'left-right' as const,
+  sensitivity: 1,
   reducedMotion: false,
 };
 
-export const useSettings = create<SettingsState>()(
+export const useSettings = create<SettingsStore>()(
   persist(
     (set) => ({
       ...DEFAULTS,
       set: (key, value) => set({ [key]: value } as any),
-      reset: () => set({ ...DEFAULTS }),
+      presetPerformance: () =>
+        set({ quality: 'low', resolution: 0.7, shadows: false } as any),
+      presetQuality: () =>
+        set({ quality: 'high', resolution: 1, shadows: true } as any),
+      resetAll: () => set({ ...DEFAULTS } as any),
     }),
-    { name: 'nexora-settings' }
+    { name: 'nr-settings-v2' }
   )
 );
 
-export interface RaceSetupState {
+interface SetupStore {
   mode: RaceMode;
   carId: string;
   trackId: string;
@@ -75,12 +66,11 @@ export interface RaceSetupState {
   difficulty: Difficulty;
   weather: Weather;
   timeOfDay: TimeOfDay;
-  opponents: number;
-  set: <K extends keyof RaceSetupState>(key: K, value: RaceSetupState[K]) => void;
-  setTrack: (trackId: string, track?: TrackDef) => void;
+  set: <K extends keyof SetupStore>(key: K, value: SetupStore[K]) => void;
+  pickTrack: (trackId: string) => void;
 }
 
-export const useRaceSetup = create<RaceSetupState>((set) => ({
+export const useSetup = create<SetupStore>((set) => ({
   mode: 'quick',
   carId: 'street-hawk',
   trackId: 'city-rush',
@@ -88,9 +78,8 @@ export const useRaceSetup = create<RaceSetupState>((set) => ({
   difficulty: 'normal',
   weather: 'clear',
   timeOfDay: 'night',
-  opponents: 6,
   set: (key, value) => set({ [key]: value } as any),
-  setTrack: (trackId) => {
+  pickTrack: (trackId) => {
     const def = getTrack(trackId);
     set({
       trackId,

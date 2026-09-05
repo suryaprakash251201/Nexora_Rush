@@ -1,87 +1,66 @@
 import { create } from 'zustand';
-import type { RacerStanding } from '@/game/engine/race';
+import type { RacerStanding } from '@/sim/race';
 
 /**
- * Live telemetry bridge between the 3D race loop and React HUD.
- * High-frequency values are written every ~80ms; flash ticks let the HUD
- * trigger effects without prop churn.
+ * Telemetry bridge: the 3D loop writes at ~12 Hz; the HUD reads.
+ * High-frequency values (speed/timer/nitro) are pushed to the DOM directly
+ * by the HUD's rAF loop to avoid React re-renders.
  */
+export type RacePhase = 'countdown' | 'racing' | 'finished';
 
-export interface TelemetryState {
-  phase: 'countdown' | 'racing' | 'finished';
-  countdown: number; // 3,2,1,0
+export interface Telemetry {
+  phase: RacePhase;
+  count: number; // 3..0, 0 = GO
   speedKmh: number;
   lap: number;
   laps: number; // 0 = endless
   position: number;
-  gridSize: number;
+  grid: number;
   nitro: number; // 0..1
   boosting: boolean;
-  raceTimeMs: number;
-  currentLapMs: number;
-  bestLapMs: number | null;
-  lastLapMs: number | null;
-  driftPoints: number;
+  raceMs: number;
+  lapMs: number;
+  bestMs: number | null;
+  lastMs: number | null;
+  drift: number;
   standings: RacerStanding[];
-  fps: number;
   wrecked: boolean;
-  // event ticks (incremented; HUD reacts to changes)
-  nearMissTick: number;
-  collisionTick: number;
-  overtakeTick: number;
-  lapTick: number;
-  driftTick: number;
+  fps: number;
+  evNear: number;
+  evHit: number;
+  evPass: number;
+  evLap: number;
 }
 
-export const useTelemetry = create<TelemetryState>(() => ({
+const FRESH: Telemetry = {
   phase: 'countdown',
-  countdown: 3,
+  count: 3,
   speedKmh: 0,
   lap: 1,
   laps: 3,
   position: 1,
-  gridSize: 1,
+  grid: 1,
   nitro: 1,
   boosting: false,
-  raceTimeMs: 0,
-  currentLapMs: 0,
-  bestLapMs: null,
-  lastLapMs: null,
-  driftPoints: 0,
+  raceMs: 0,
+  lapMs: 0,
+  bestMs: null,
+  lastMs: null,
+  drift: 0,
   standings: [],
-  fps: 60,
   wrecked: false,
-  nearMissTick: 0,
-  collisionTick: 0,
-  overtakeTick: 0,
-  lapTick: 0,
-  driftTick: 0,
-}));
+  fps: 60,
+  evNear: 0,
+  evHit: 0,
+  evPass: 0,
+  evLap: 0,
+};
 
-export function resetTelemetry(partial: Partial<TelemetryState> = {}) {
-  useTelemetry.setState({
-    phase: 'countdown',
-    countdown: 3,
-    speedKmh: 0,
-    lap: 1,
-    position: 1,
-    nitro: 1,
-    boosting: false,
-    raceTimeMs: 0,
-    currentLapMs: 0,
-    bestLapMs: null,
-    lastLapMs: null,
-    driftPoints: 0,
-    standings: [],
-    wrecked: false,
-    nearMissTick: 0,
-    collisionTick: 0,
-    overtakeTick: 0,
-    lapTick: 0,
-    driftTick: 0,
-    ...partial,
-  });
+export const useTelemetry = create<Telemetry>(() => ({ ...FRESH }));
+
+export function resetTelemetry(patch: Partial<Telemetry> = {}) {
+  useTelemetry.setState({ ...FRESH, ...patch });
 }
 
-/** Mutable per-frame minimap dot positions (kept out of React for perf). */
-export const minimapDots: { x: number; y: number; isPlayer: boolean }[] = [];
+/** World-space dots for the minimap (mutated by the scene, read by HUD). */
+export const mapDots: { x: number; z: number; me: boolean }[] = [];

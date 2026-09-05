@@ -1,42 +1,40 @@
 import { useEffect } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from '@/store/auth';
 import { useSettings } from '@/store/settings';
-import { audio } from '@/game/engine/audio';
-import { AchievementToasts } from '@/ui/AchievementToasts';
-import { LoadingScreen } from '@/ui/LoadingScreen';
-import { LandingPage } from '@/pages/LandingPage';
-import { AuthPage } from '@/pages/AuthPage';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { DashboardLayout } from '@/pages/DashboardLayout';
-import { GaragePage } from '@/pages/GaragePage';
-import { TracksPage } from '@/pages/TracksPage';
-import { RaceSetupPage } from '@/pages/RaceSetupPage';
-import { RacePage } from '@/pages/RacePage';
-import { ChampionshipPage } from '@/pages/ChampionshipPage';
-import { LeaderboardPage } from '@/pages/LeaderboardPage';
-import { ProfilePage } from '@/pages/ProfilePage';
-import { AchievementsPage } from '@/pages/AchievementsPage';
-import { SettingsPage } from '@/pages/SettingsPage';
-import { GuestDemoPage } from '@/pages/GuestDemoPage';
+import { sound } from '@/sim/audio';
+import { AchToasts } from '@/ui/toasts';
+import { Loading } from '@/ui/loading';
+import { Landing } from '@/pages/landing';
+import { Auth } from '@/pages/auth';
+import { Shell } from '@/pages/shell';
+import { Home } from '@/pages/home';
+import { Garage } from '@/pages/garage';
+import { Tracks } from '@/pages/tracks';
+import { Setup } from '@/pages/setup';
+import { Race } from '@/pages/race';
+import { Series } from '@/pages/series';
+import { Board } from '@/pages/board';
+import { Profile } from '@/pages/profile';
+import { Trophies } from '@/pages/trophies';
+import { Prefs } from '@/pages/prefs';
+import { Demo } from '@/pages/demo';
 
 export default function App() {
   const status = useAuth((s) => s.status);
-  const checkAuth = useAuth((s) => s.checkAuth);
+  const boot = useAuth((s) => s.boot);
   const reduced = useSettings((s) => s.reducedMotion);
 
   useEffect(() => {
-    void checkAuth();
-  }, [checkAuth]);
+    void boot();
+  }, [boot]);
 
-  // honor reduced-motion globally
   useEffect(() => {
     document.documentElement.style.scrollBehavior = reduced ? 'auto' : 'smooth';
   }, [reduced]);
 
-  // global click → audio unlock (browser autoplay policy)
   useEffect(() => {
-    const unlock = () => audio.init();
+    const unlock = () => sound.unlock();
     window.addEventListener('pointerdown', unlock, { once: true });
     window.addEventListener('keydown', unlock, { once: true });
     return () => {
@@ -45,56 +43,37 @@ export default function App() {
     };
   }, []);
 
-  if (status === 'checking') return <LoadingScreen label="NEXORA RUSH" />;
+  if (status === 'checking') return <Loading label="Nexora Rush" />;
 
   return (
     <>
-      <AchievementToasts />
+      <AchToasts />
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path="/demo" element={<GuestDemoPage />} />
-        <Route
-          element={
-            <Protected>
-              <DashboardLayout />
-            </Protected>
-          }
-        >
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/garage" element={<GaragePage />} />
-          <Route path="/tracks" element={<TracksPage />} />
-          <Route path="/setup/:trackId" element={<RaceSetupPage />} />
-          <Route path="/leaderboard" element={<LeaderboardPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/achievements" element={<AchievementsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/demo" element={<Demo />} />
+        <Route element={<Gate><Shell /></Gate>}>
+          <Route path="/dashboard" element={<Home />} />
+          <Route path="/garage" element={<Garage />} />
+          <Route path="/tracks" element={<Tracks />} />
+          <Route path="/setup/:trackId" element={<Setup />} />
+          <Route path="/leaderboard" element={<Board />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/achievements" element={<Trophies />} />
+          <Route path="/settings" element={<Prefs />} />
         </Route>
-        <Route
-          path="/race"
-          element={
-            <Protected>
-              <RacePage />
-            </Protected>
-          }
-        />
-        <Route
-          path="/play/championship"
-          element={
-            <Protected>
-              <ChampionshipPage />
-            </Protected>
-          }
-        />
+        <Route path="/race" element={<Gate><Race /></Gate>} />
+        <Route path="/play/championship" element={<Gate><Series /></Gate>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );
 }
 
-function Protected({ children }: { children: React.ReactNode }) {
-  const user = useAuth((s) => s.user);
+function Gate({ children }: { children: React.ReactNode }) {
+  const status = useAuth((s) => s.status);
   const location = useLocation();
-  if (!user) return <Navigate to="/auth" state={{ from: location.pathname }} replace />;
+  if (status === 'out') return <Navigate to="/auth" state={{ from: location.pathname }} replace />;
+  if (status === 'checking') return <Loading label="Nexora Rush" />;
   return <>{children}</>;
 }

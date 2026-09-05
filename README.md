@@ -115,18 +115,21 @@ nexora-rush/
 │   └── tests/            # anti-cheat / scoring / xp rules (vitest)
 └── client/
     └── src/
-        ├── game/
-        │   ├── engine/   # track.ts (spline geometry), physics.ts, ai.ts, race.ts
-        │   │             # (orchestrator), audio.ts (procedural WebAudio), input.ts
-        │   ├── cars/     # procedural CarModel (stats-driven proportions)
-        │   ├── tracks/   # 6 track defs + visual themes
-        │   ├── environment/ # skies, fog, instanced props, weather particles
-        │   └── scenes/   # RaceScene, GarageScene, LandingScene
-        ├── pages/        # Landing, Auth, Dashboard, Garage, Tracks, RaceSetup,
-        │                 # Race, Championship, Leaderboard, Profile, Achievements, Settings
-        ├── ui/           # HUD, TouchControls, Countdown, PauseMenu, Results, Toasts…
-        ├── store/        # zustand: auth, settings, race setup, telemetry bridge
-        └── services/     # typed API client
+        ├── sim/          # simulation core (unit-tested): track splines, arcade
+        │                 # vehicle physics, AI rivals, race orchestrator
+        │                 # (fixed-step, wall-clock countdown), keyboard+touch
+        │                 # input, procedural WebAudio, formatting helpers
+        ├── world/        # procedural CarModel (yaw-exact, correct wheel axes),
+        │                 # 6 environment themes, terrain-following ground,
+        │                 # neon edges, dashes, start gantry, instanced props
+        ├── scenes/       # RaceScene (orbit/chase/hood cams), Garage turntable,
+        │                 # Landing hero scene
+        ├── pages/        # landing, auth, shell, home, garage, tracks, setup,
+        │                 # race, series, board, profile, trophies, prefs, demo
+        ├── ui/           # design kit, 60fps HUD, touch pad, pause, results,
+        │                 # toasts, settings form, loader
+        ├── store/        # zustand: auth, settings+setup, telemetry bridge
+        └── api.ts        # typed backend client (cookies + CSRF header)
 ```
 
 **Controllers are pluggable.** The race engine drives the player through the same
@@ -134,10 +137,16 @@ nexora-rush/
 A `NetworkPlayerController` can be added by mirroring opponent states over the existing
 WebSocket layer (`/ws`, rooms + presence) without touching the engine.
 
-**Performance:** instanced world props, one draw call per prop class, pooled weather
-particles recycled around the camera, fixed-substep physics, throttled HUD bridge
-(React re-renders at ~12 Hz; speed/timer/nitro update via direct DOM refs at 60 fps),
-chunked bundles, LOD via quality presets (shadow/DPR/particle budgets).
+**Rendering notes (learned the hard way, verified with headless screenshots):**
+- three r155+ uses physical light units — intensities that look right in legacy
+  tutorials render near-black. The rig uses ambient ×3, sun ×4 plus brighter
+  albedo on road/ground, with lights + fog as direct Canvas children.
+- The ground is a heightfield shrink-wrapped to the track elevation. A flat
+  ground plane buries the road wherever the circuit dips — this was the
+  original "invisible car" bug.
+- Car yaw is exact: models are built nose-toward-+Z so `rotation.y = heading`
+  matches the physics forward vector; wheels sit on (lateral, height,
+  longitudinal) axes and visibly steer + spin.
 
 ---
 

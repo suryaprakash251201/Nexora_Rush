@@ -18,9 +18,16 @@ import type { Request } from 'express';
 const app = express();
 
 app.use(helmet({ crossOriginResourcePolicy: false }));
+// CORS: exact allow-list in production; in development also allow loopback and
+// LAN origins (same machine reached via its network IP, e.g. phones/tablets).
 app.use(
   cors({
-    origin: [config.clientUrl],
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      if (origin === config.clientUrl) return cb(null, true);
+      if (!config.isProd && isLocalOrigin(origin)) return cb(null, true);
+      return cb(new Error('CORS blocked'), false);
+    },
     credentials: true,
   })
 );
@@ -64,6 +71,27 @@ app.use(errorHandler);
 
 const server = http.createServer(app);
 setupWebsocket(server);
+
+/** Loopback + RFC1918 LAN origins (dev convenience for LAN-device testing). */
+function isLocalOrigin(origin: string): boolean {
+  try {
+    const u = new URL(origin);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    const h = u.hostname;
+    if (h === 'localhost' || h === '127.0.0.1' || h === '::1') return true;
+    const parts = h.split('.').map(Number);
+    if (parts.length === 4 && parts.every((n) => Number.isInteger(n) && n >= 0 && n <= 255)) {
+      const [a, b] = parts;
+      if (a === 10) return true;
+      if (a === 192 && b === 168) return true;
+      if (a === 172 && b >= 16 && b <= 31) return true;
+    }
+    if (h.endsWith('.local') || h.endsWith('.lan')) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 server.listen(config.port, () => {
   console.log(`🏁 Nexora Rush API listening on http://localhost:${config.port}`);
