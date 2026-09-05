@@ -1,5 +1,11 @@
 # 🏁 Nexora Rush
 
+[![Node >= 20](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![React + Three.js](https://img.shields.io/badge/3D-React_Three_Fiber-06b6d4?logo=three.js&logoColor=white)](https://docs.pmnd.rs/react-three-fiber)
+[![PostgreSQL + Prisma](https://img.shields.io/badge/db-PostgreSQL_+_Prisma-4169E1?logo=postgresql&logoColor=white)](https://www.prisma.io)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 A full-stack, commercial-quality **3D arcade racing game** that runs in the browser.
 Nine cars, six themed tracks, five race modes, AI rivals, real physics, XP progression,
 achievements, and server-validated leaderboards — all built on original, procedural assets.
@@ -264,3 +270,24 @@ Keyboard-navigable menus with visible focus rings, `aria-pressed`/`role` attribu
 all toggles and tabs, live regions for countdowns and achievement toasts, a reduced-motion
 setting honored across UI, high-contrast neon-on-dark palette, touch-friendly hit targets,
 bottom navigation and on-screen racing controls on mobile.
+
+---
+
+## Contributing
+
+```bash
+git clone https://github.com/suryaprakash251201/Nexora_Rush.git
+cd Nexora_Rush
+npm install
+cp .env.example server/.env   # point DATABASE_URL at your PostgreSQL instance
+cd server && npx prisma migrate dev && npm run db:seed && cd ..
+npm run dev
+```
+
+- `npm test` and `npm run lint` must pass before opening a PR.
+- Never commit `server/.env` or any credentials (it's git-ignored; use `.env.example` for schema changes).
+- Server scoring is authoritative — gameplay/economy changes need test coverage in `shared`, `server/tests` and `client/tests`.
+
+## License
+
+MIT — see [LICENSE](./LICENSE).

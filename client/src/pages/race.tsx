@@ -281,8 +281,16 @@ export function Race({ guest = false }: { guest?: boolean }) {
         />
       )}
       {warn && !result && (
-        <div className="absolute left-1/2 top-16 z-40 -translate-x-1/2 rounded-xl border border-rose-400/40 bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-200 backdrop-blur">
-          {warn}
+        <div
+          role="alert"
+          className="absolute left-1/2 top-20 z-40 flex w-[min(92vw,480px)] -translate-x-1/2 items-center gap-2.5 rounded-2xl border border-rose-400/40 bg-[#14090d]/90 px-4 py-2.5 text-sm font-semibold text-rose-200 shadow-[0_12px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-rose-300" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="m12 9-1.5 5.5h3L12 9z" />
+            <path d="M12 17.5h.01" />
+            <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+          </svg>
+          <span className="min-w-0 flex-1">{warn}</span>
         </div>
       )}
     </div>
