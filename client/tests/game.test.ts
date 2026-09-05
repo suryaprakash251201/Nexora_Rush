@@ -25,7 +25,8 @@ function chase(track: TG, car: CarState): Controls {
   let diff = want - car.heading;
   while (diff > Math.PI) diff -= Math.PI * 2;
   while (diff < -Math.PI) diff += Math.PI * 2;
-  return { ...NEUTRAL, throttle: 1, steer: Math.max(-1, Math.min(1, diff * 2)) };
+  // NB: steer +1 = RIGHT = heading decreases (see physics.ts), so negate.
+  return { ...NEUTRAL, throttle: 1, steer: Math.max(-1, Math.min(1, -diff * 2)) };
 }
 
 function drive(car: CarState, t: TG, tune: ReturnType<typeof tuneFor>, ctl: Controls, frames: number, weather: 'clear' | 'snow' = 'clear', clock = { ms: 0 }) {

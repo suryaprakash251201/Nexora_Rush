@@ -33,7 +33,9 @@ racesRouter.post('/start', async (req, res, next) => {
     if (!track) throw new ApiError(400, 'INVALID_TRACK', 'Unknown track');
     if (!car) throw new ApiError(400, 'INVALID_CAR', 'Unknown car');
     if (car.unlockLevel > level) throw new ApiError(403, 'LOCKED', 'This car is not unlocked yet');
-    if (track.unlockLevel > level) throw new ApiError(403, 'LOCKED', 'This track is not unlocked yet');
+    // Daily challenge is a special event: the track is open to everyone that day.
+    if (input.mode !== 'daily' && track.unlockLevel > level)
+      throw new ApiError(403, 'LOCKED', 'This track is not unlocked yet');
     if (!track.weathers.includes(input.weather))
       throw new ApiError(400, 'INVALID_WEATHER', 'Weather not supported on this track');
     if (!track.timesOfDay.includes(input.timeOfDay))

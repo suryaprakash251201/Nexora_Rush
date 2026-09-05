@@ -87,7 +87,7 @@ export function Landing() {
         </motion.div>
         <div className="mt-10 flex flex-wrap gap-x-10 gap-y-3 text-sm text-slate-400">
           {[
-            ['6', 'Worlds'],
+            [String(TRACKS.length), 'Worlds'],
             ['9', 'Cars'],
             ['5', 'Race Modes'],
             ['60', 'FPS Target'],
@@ -149,7 +149,7 @@ export function Landing() {
       </section>
 
       <section className="relative z-10 mx-auto max-w-7xl px-5 py-10">
-        <h2 className="mb-8 font-display text-2xl font-black uppercase tracking-wider text-white">Six worlds</h2>
+        <h2 className="mb-8 font-display text-2xl font-black uppercase tracking-wider text-white">{TRACKS.length} worlds</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {TRACKS.map((t) => (
             <Panel key={t.id} className="overflow-hidden !p-0">

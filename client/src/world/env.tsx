@@ -15,7 +15,7 @@ import { useSettings } from '@/store/settings';
 export function World({ theme, track, weather }: { theme: Theme; track: TrackGeometry; weather: string }) {
   const quality = useSettings((s) => s.quality);
   const roadGeo = useMemo(() => track.roadMesh(6), [track]);
-  const terrain = useMemo(() => terrainGeo(track), [track]);
+  const terrain = useMemo(() => terrainGeo(track, theme), [track, theme]);
   const wet = weather === 'rain';
 
   return (
@@ -25,6 +25,7 @@ export function World({ theme, track, weather }: { theme: Theme; track: TrackGeo
       <mesh geometry={terrain} receiveShadow>
         <meshStandardMaterial color={theme.ground} roughness={0.95} />
       </mesh>
+      {theme.water && <WaterPlane track={track} color={theme.waterColor} />}
       {/* road */}
       <mesh geometry={roadGeo} position={[0, 0.02, 0]} receiveShadow>
         <meshStandardMaterial color={theme.road} roughness={wet ? 0.35 : 0.7} metalness={wet ? 0.5 : 0.1} />
@@ -66,13 +67,15 @@ function Sky({ theme }: { theme: Theme }) {
 }
 
 /** Terrain heightfield: each vertex takes the nearest track elevation minus
- *  a small offset, so the ground always sits just below the road surface. */
-function terrainGeo(track: TrackGeometry): THREE.BufferGeometry {
+ *  a small offset, so the ground always sits just below the road surface.
+ *  Natural themes get gentle rolling noise away from the road. */
+function terrainGeo(track: TrackGeometry, theme: Theme): THREE.BufferGeometry {
   const g = new THREE.PlaneGeometry(1500, 1500, 88, 88);
   g.rotateX(-Math.PI / 2);
   const pos = g.attributes.position as THREE.BufferAttribute;
   const arr = pos.array as Float32Array;
   const n = track.samples;
+  const natural = theme.id === 'forest' || theme.id === 'lake' || theme.id === 'meadow' || theme.id === 'canyon' || theme.id === 'mountain' || theme.id === 'tropical';
   for (let i = 0; i < pos.count; i++) {
     const x = arr[i * 3];
     const z = arr[i * 3 + 2];
@@ -87,11 +90,58 @@ function terrainGeo(track: TrackGeometry): THREE.BufferGeometry {
         by = track.py[k];
       }
     }
-    arr[i * 3 + 1] = by - 0.45;
+    let y = by - 0.45;
+    if (natural) {
+      const dist = Math.sqrt(best);
+      // rolling hills grow with distance from road (up to +9m), plus fine ripple
+      const hills = Math.min(9, dist * 0.03);
+      y += hills * (0.5 + 0.5 * Math.sin(x * 0.02) * Math.cos(z * 0.023));
+      y += Math.sin(x * 0.11 + z * 0.07) * 0.35;
+    }
+    arr[i * 3 + 1] = y;
   }
   pos.needsUpdate = true;
   g.computeVertexNormals();
   return g;
+}
+
+/** Lakes / rivers: large reflective discs tucked beside the circuit. */
+function WaterPlane({ track, color }: { track: TrackGeometry; color: string }) {
+  const spots = useMemo(() => {
+    const rand = mulberry32(99);
+    const out: { x: number; z: number; y: number; r: number }[] = [];
+    for (let i = 0; i < 5; i++) {
+      const idx = Math.floor(rand() * track.samples);
+      const side = rand() < 0.5 ? -1 : 1;
+      const off = side * (55 + rand() * 60);
+      out.push({
+        x: track.px[idx] + track.tz[idx] * off,
+        z: track.pz[idx] - track.tx[idx] * off,
+        y: track.py[idx] - 0.9,
+        r: 30 + rand() * 45,
+      });
+    }
+    return out;
+  }, [track]);
+  const ref = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    const t = clock.elapsedTime;
+    ref.current.children.forEach((m, i) => {
+      const mat = (m as THREE.Mesh).material as THREE.MeshStandardMaterial;
+      mat.opacity = 0.72 + Math.sin(t * 1.2 + i * 2) * 0.08;
+    });
+  });
+  return (
+    <group ref={ref}>
+      {spots.map((s, i) => (
+        <mesh key={i} position={[s.x, s.y, s.z]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[s.r, 28]} />
+          <meshStandardMaterial color={color} roughness={0.12} metalness={0.55} transparent opacity={0.75} />
+        </mesh>
+      ))}
+    </group>
+  );
 }
 
 /** Dashed center line, one instanced draw call. */
@@ -238,13 +288,17 @@ function Props({ theme, track, quality }: { theme: Theme; track: TrackGeometry; 
   const tCount = small ? Math.floor(theme.treeCount / 2) : theme.treeCount;
   const buildings = useMemo(() => scatter(track, bCount, 30, 140, 11), [track, bCount]);
   const trees = useMemo(() => scatter(track, tCount, 13, 80, 22), [track, tCount]);
-  const rocks = useMemo(() => scatter(track, small ? 40 : theme.rocks, 14, 90, 33), [track, theme.rocks, small]);
+  const rocks = useMemo(() => scatter(track, small ? Math.min(40, theme.rocks) : theme.rocks, 14, 90, 33), [track, theme.rocks, small]);
   const shards = useMemo(() => scatter(track, small ? 30 : theme.shards, 13, 70, 44), [track, theme.shards, small]);
   const halos = useMemo(() => scatter(track, small ? 18 : theme.halos, 20, 60, 55), [track, theme.halos, small]);
+  const flowers = useMemo(() => scatter(track, small ? Math.floor(theme.flowers / 3) : theme.flowers, 10, 45, 66), [track, theme.flowers, small]);
+  const cliffs = useMemo(() => scatter(track, small ? Math.floor(theme.cliffs / 2) : theme.cliffs, 22, 70, 77), [track, theme.cliffs, small]);
   const bHeights = useMemo(() => {
     const rand = mulberry32(777);
     return buildings.map(() => 16 + rand() * 70);
   }, [buildings]);
+  const flowerRef = useRef<THREE.InstancedMesh>(null);
+  const cliffRef = useRef<THREE.InstancedMesh>(null);
   const bRef = useRef<THREE.InstancedMesh>(null);
   const gRef = useRef<THREE.InstancedMesh>(null);
   const trunkRef = useRef<THREE.InstancedMesh>(null);
@@ -276,7 +330,8 @@ function Props({ theme, track, quality }: { theme: Theme; track: TrackGeometry; 
     setInstances(topRef.current, trees, (m, sp) => {
       _p.set(sp.x, sp.y + sp.s * 4.2, sp.z);
       _q.setFromAxisAngle(_up, sp.r);
-      _s.set(sp.s * 2.4, sp.s * (theme.trees === 'palms' ? 1.4 : 3.6), sp.s * 2.4);
+      const flat = theme.trees === 'palms' ? 1.4 : theme.trees === 'oaks' ? 2.6 : theme.trees === 'mixed' ? 3.0 : 3.6;
+      _s.set(sp.s * 2.4, sp.s * flat, sp.s * 2.4);
       m.compose(_p, _q, _s);
     });
     setInstances(rockRef.current, rocks, (m, sp) => {
@@ -291,7 +346,22 @@ function Props({ theme, track, quality }: { theme: Theme; track: TrackGeometry; 
       _s.set(sp.s * 1.6, sp.s * 2.4, sp.s * 1.6);
       m.compose(_p, _q, _s);
     });
-  }, [buildings, trees, rocks, shards, bHeights, theme.trees]);
+    setInstances(flowerRef.current, flowers, (m, sp) => {
+      _p.set(sp.x, sp.y + 0.35, sp.z);
+      _q.setFromAxisAngle(_up, sp.r);
+      const s = 0.5 + (sp.s - 0.6) * 0.8;
+      _s.set(s, s, s);
+      m.compose(_p, _q, _s);
+    });
+    setInstances(cliffRef.current, cliffs, (m, sp) => {
+      _p.set(sp.x, sp.y + sp.s * 6, sp.z);
+      _q.setFromAxisAngle(_up, sp.r);
+      _s.set(sp.s * 7, sp.s * 12, sp.s * 7);
+      m.compose(_p, _q, _s);
+    });
+  }, [buildings, trees, rocks, shards, flowers, cliffs, bHeights, theme.trees]);
+
+  const treeTop = theme.trees === 'palms' ? 'palm' : theme.trees === 'oaks' ? 'oak' : theme.trees === 'mixed' ? 'mixed' : 'pine';
 
   return (
     <group>
@@ -311,24 +381,44 @@ function Props({ theme, track, quality }: { theme: Theme; track: TrackGeometry; 
         <group>
           <instancedMesh ref={trunkRef} args={[undefined, undefined, Math.max(1, trees.length)]} frustumCulled={false}>
             <cylinderGeometry args={[0.22, 0.32, 3, 6]} />
-            <meshStandardMaterial color={theme.trees === 'palms' ? '#6b4a2a' : '#3a2a1a'} roughness={0.9} />
+            <meshStandardMaterial color={theme.trunkColor} roughness={0.9} />
           </instancedMesh>
           <instancedMesh ref={topRef} args={[undefined, undefined, Math.max(1, trees.length)]} frustumCulled={false}>
-            {theme.trees === 'palms' ? <sphereGeometry args={[1, 7, 5]} /> : <coneGeometry args={[1, 2.4, 7]} />}
-            <meshStandardMaterial color={theme.trees === 'palms' ? '#2a8a4a' : '#1e4d2b'} roughness={0.9} flatShading />
+            {treeTop === 'palm' ? (
+              <sphereGeometry args={[1, 7, 5]} />
+            ) : treeTop === 'oak' ? (
+              <icosahedronGeometry args={[1.3, 1]} />
+            ) : treeTop === 'mixed' ? (
+              <icosahedronGeometry args={[1.2, 0]} />
+            ) : (
+              <coneGeometry args={[1, 2.4, 7]} />
+            )}
+            <meshStandardMaterial color={theme.treeColor} roughness={0.9} flatShading />
           </instancedMesh>
         </group>
       )}
       {rocks.length > 0 && (
         <instancedMesh ref={rockRef} args={[undefined, undefined, Math.max(1, rocks.length)]} frustumCulled={false}>
           <dodecahedronGeometry args={[1, 0]} />
-          <meshStandardMaterial color="#8a6a4a" roughness={0.95} />
+          <meshStandardMaterial color={theme.rockColor} roughness={0.95} />
         </instancedMesh>
       )}
       {shards.length > 0 && (
         <instancedMesh ref={shardRef} args={[undefined, undefined, Math.max(1, shards.length)]} frustumCulled={false}>
           <octahedronGeometry args={[1, 0]} />
           <meshStandardMaterial color="#bfe4ff" roughness={0.15} transparent opacity={0.85} />
+        </instancedMesh>
+      )}
+      {flowers.length > 0 && (
+        <instancedMesh ref={flowerRef} args={[undefined, undefined, Math.max(1, flowers.length)]} frustumCulled={false}>
+          <icosahedronGeometry args={[0.5, 0]} />
+          <meshStandardMaterial color={theme.grassTint} roughness={0.8} flatShading emissive={theme.neon} emissiveIntensity={0.12} />
+        </instancedMesh>
+      )}
+      {cliffs.length > 0 && (
+        <instancedMesh ref={cliffRef} args={[undefined, undefined, Math.max(1, cliffs.length)]} frustumCulled={false}>
+          <dodecahedronGeometry args={[1, 0]} />
+          <meshStandardMaterial color={theme.rockColor} roughness={0.95} flatShading />
         </instancedMesh>
       )}
       {halos.length > 0 && <Halos spots={halos} color={theme.neon} />}
@@ -374,8 +464,14 @@ function Dust({ theme, weather, track, quality }: { theme: Theme; weather: strin
     return g;
   }, [count]);
   const mat = useMemo(() => {
-    const c = kind === 'rain' ? '#9fc8ff' : kind === 'snow' ? '#ffffff' : kind === 'sand' ? '#d8a06a' : theme.neon;
-    return new THREE.PointsMaterial({ color: c, size: kind === 'snow' ? 0.5 : 0.35, transparent: true, opacity: kind === 'none' ? 0 : 0.65, depthWrite: false });
+    const c =
+      kind === 'rain' ? '#9fc8ff'
+      : kind === 'snow' ? '#ffffff'
+      : kind === 'sand' ? '#d8a06a'
+      : kind === 'leaves' ? '#7aba3a'
+      : kind === 'petals' ? '#fbcfe8'
+      : theme.neon;
+    return new THREE.PointsMaterial({ color: c, size: kind === 'snow' ? 0.5 : kind === 'leaves' || kind === 'petals' ? 0.45 : 0.35, transparent: true, opacity: kind === 'none' ? 0 : 0.65, depthWrite: false });
   }, [kind, theme.neon]);
   const ref = useRef<THREE.Points>(null);
   const { camera } = useThree();
@@ -404,6 +500,15 @@ function Dust({ theme, weather, track, quality }: { theme: Theme; weather: strin
           a[ix] = tmp.x + (Math.random() - 0.5) * 120;
           a[ix + 2] = tmp.z + (Math.random() - 0.5) * 120;
           a[ix + 1] = 30 + Math.random() * 25;
+        }
+      } else if (kind === 'leaves' || kind === 'petals') {
+        a[ix + 1] -= step * (1.5 + (i % 5) * 0.3);
+        a[ix] += Math.sin(a[ix + 1] * 0.8 + i) * step * 3;
+        a[ix + 2] += Math.cos(a[ix + 1] * 0.6 + i * 1.3) * step * 2;
+        if (a[ix + 1] < 0 || Math.abs(a[ix] - tmp.x) > 75 || Math.abs(a[ix + 2] - tmp.z) > 75) {
+          a[ix] = tmp.x + (Math.random() - 0.5) * 120;
+          a[ix + 2] = tmp.z + (Math.random() - 0.5) * 120;
+          a[ix + 1] = 6 + Math.random() * 22;
         }
       } else {
         a[ix] -= step * (kind === 'sand' ? 26 : 2);

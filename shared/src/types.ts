@@ -12,7 +12,11 @@ export type ThemeId =
   | 'mountain'
   | 'arctic'
   | 'tropical'
-  | 'cyber';
+  | 'cyber'
+  | 'forest'
+  | 'lake'
+  | 'meadow'
+  | 'canyon';
 
 export type RaceMode =
   | 'quick'

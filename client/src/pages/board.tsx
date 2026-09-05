@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { clsx } from 'clsx';
 import type { LeaderboardResponse } from 'shared';
-import { getCar, getTrack } from 'shared';
+import { getCar, getTrack, TRACKS } from 'shared';
 import { api, ApiError } from '@/api';
 import { useAuth } from '@/store/auth';
 import { Avatar, Panel, Title } from '@/ui/kit';
@@ -67,8 +67,8 @@ export function Board() {
             aria-label="Track"
             className="ml-2 rounded-xl border border-white/10 bg-[#0a1220] px-3 py-2 text-xs font-bold uppercase tracking-widest text-slate-200 outline-none"
           >
-            {['city-rush', 'desert-storm', 'mountain-pass', 'arctic-run', 'tropical-coast', 'cyber-circuit'].map((id) => (
-              <option key={id} value={id}>{getTrack(id)?.name ?? id}</option>
+            {TRACKS.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
         )}

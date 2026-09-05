@@ -37,7 +37,7 @@ export function Tracks() {
 
   return (
     <div className="py-4">
-      <Title sub="Six worlds, six feels. Locked tracks open as you level up.">Tracks</Title>
+      <Title sub={`${TRACKS.length} worlds, ${TRACKS.length} feels. Locked tracks open as you level up.`}>Tracks</Title>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {TRACKS.map((t, i) => (
           <motion.div key={t.id} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>

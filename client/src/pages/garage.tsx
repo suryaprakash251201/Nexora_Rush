@@ -11,6 +11,12 @@ import { Loading } from '@/ui/loading';
 import { sound } from '@/sim/audio';
 
 const GarageView = lazy(() => import('@/scenes/garage').then((m) => ({ default: m.GarageView })));
+const SHOWROOM_LIST = [
+  { id: 'midnight', label: 'Midnight', icon: '🌙' },
+  { id: 'sunset', label: 'Sunset', icon: '🌇' },
+  { id: 'forest', label: 'Forest', icon: '🌲' },
+  { id: 'neon', label: 'Neon', icon: '🌃' },
+] as const;
 
 export function Garage() {
   const navigate = useNavigate();
@@ -19,6 +25,7 @@ export function Garage() {
   const [unlocked, setUnlocked] = useState<string[] | null>(null);
   const [paint, setPaint] = useState(0);
   const [specs, setSpecs] = useState(false);
+  const [room, setRoom] = useState<(typeof SHOWROOM_LIST)[number]['id']>('midnight');
 
   useEffect(() => {
     api.cars()
@@ -37,8 +44,28 @@ export function Garage() {
       <div className="grid gap-4 lg:grid-cols-[1fr_370px]">
         <Panel className="relative min-h-[420px] overflow-hidden !p-0 lg:min-h-[560px]">
           <Suspense fallback={<Loading label="Loading vehicle" />}>
-            <GarageView car={car} paint={color} accent={car.colors[(paint + 1) % car.colors.length]} />
+            <GarageView car={car} paint={color} accent={car.colors[(paint + 1) % car.colors.length]} showroom={room} />
           </Suspense>
+          {/* showroom background picker */}
+          <div className="absolute left-4 top-16 flex flex-col gap-1.5">
+            {SHOWROOM_LIST.map((r) => (
+              <button
+                key={r.id}
+                title={`${r.label} showroom`}
+                aria-pressed={room === r.id}
+                onClick={() => {
+                  sound.click();
+                  setRoom(r.id);
+                }}
+                className={clsx(
+                  'flex h-9 w-9 items-center justify-center rounded-xl border text-base backdrop-blur transition-all',
+                  room === r.id ? 'scale-110 border-cyan-300/70 bg-cyan-300/20' : 'border-white/15 bg-black/45 hover:border-white/35'
+                )}
+              >
+                {r.icon}
+              </button>
+            ))}
+          </div>
           <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between p-4">
             <div className="pointer-events-auto flex gap-2">
               {car.colors.map((c, i) => (

@@ -151,12 +151,16 @@ export function stepCar(car: CarState, track: TrackGeometry, ctx: StepInput) {
   if (!locked && Math.abs(car.speed) < 0.05 && ctx.controls.throttle === 0 && ctx.controls.brake === 0) car.speed = 0;
 
   // --- steering ---
+  // Convention: steer +1 = RIGHT (screen-right), -1 = LEFT.
+  // Forward = (sin h, cos h), and the chase cam sits behind looking along
+  // +forward, so screen-right is -X when heading is 0. Turning right must
+  // therefore *decrease* heading. (Previously `+=`, which made ←/→ swapped.)
   const absV = Math.abs(car.speed);
   const steer = locked ? 0 : ctx.controls.steer;
   const gripNow = T.grip * S.grip;
   const sliding = ctx.controls.handbrake && absV > 4;
   const rate = 2.4 * (1 / (1 + absV * 0.028)) * (0.55 + gripNow * 0.75) * (sliding ? 1.35 : 1) * (car.boosting ? 0.96 : 1);
-  car.heading += steer * rate * dt * (car.speed < -0.5 ? -1 : 1) * (0.35 + Math.min(1, absV / 14));
+  car.heading -= steer * rate * dt * (car.speed < -0.5 ? -1 : 1) * (0.35 + Math.min(1, absV / 14));
 
   // --- lateral grip: rotate velocity toward the nose, bleed the slide ---
   const fx = Math.sin(car.heading);
